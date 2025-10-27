@@ -107,3 +107,11 @@ def tcp_ping(host: str, port: int = 80, timeout: float = 1.5):
 @app.get("/headers", dependencies=[Depends(auth)])
 def echo_headers(req: Request):
     return {k: v for k, v in req.headers.items()}
+
+
+@app.get("/search", dependencies=[Depends(auth)])
+def search_items(q: str):
+    ql = q.lower
+    return [it for it DB.values() if ql in it["name"].lower()]
+
+
