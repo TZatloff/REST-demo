@@ -1,6 +1,6 @@
 # python
 from fastapi import FastAPI, HTTPException, Depends, Response, Request, Header
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import socket
 import httpx
@@ -11,7 +11,7 @@ app = FastAPI(title="Git+Networking REST Demo")
 class Item(BaseModel):
     name: str
     description: Optional[str] = None
-    price: float
+    price: float = Field(gt=0)
 
 
 DB: Dict[int, dict] = {}
@@ -113,5 +113,3 @@ def echo_headers(req: Request):
 def search_items(q: str):
     ql = q.lower
     return [it for it DB.values() if ql in it["name"].lower()]
-
-
