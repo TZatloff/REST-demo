@@ -19,7 +19,6 @@ SEQ = 0
 
 
 def auth(x_api_key: Optional[str] = Header(None)):
-    # simple demo auth: require header X-API-Key: secret
     if x_api_key != "secret":
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -41,12 +40,13 @@ def get_item(item_id: int):
     return DB[item_id]
 
 
-@app.post("/items", status_code=201)
-def create_item(item: Item):
+@app.post("/items", status_code=201, dependencies=[Depends(auth)] )
+def create_item(item: Item, response: Response):
     global SEQ
     SEQ += 1
     obj = {"id": SEQ, **item.dict()}
     DB[SEQ] = obj
+    response.headers["Location"] = f"/items/{SEQ}"
     return obj
 
 
@@ -111,5 +111,5 @@ def echo_headers(req: Request):
 
 @app.get("/search", dependencies=[Depends(auth)])
 def search_items(q: str):
-    ql = q.lower
-    return [it for it DB.values() if ql in it["name"].lower()]
+    ql = q.lower()
+    return [it for it in DB.values() if ql in it["name"].lower()]
