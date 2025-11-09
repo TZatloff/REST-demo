@@ -1,115 +1,96 @@
-# python
-from fastapi import FastAPI, HTTPException, Depends, Response, Request, Header
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
-import socket
-import httpx
+from fastapi import FastAPI, HTTPException, Header, Depends
+from pydantic import BaseModel, constr
+from typing import Optional, List, Dict
+from hashlib import md5
+import json
 
-app = FastAPI(title="Git+Networking REST Demo")
-
-
-class Item(BaseModel):
-    name: str
-    description: Optional[str] = None
-    price: float = Field(gt=0)
+app = FastAPI(title="Books API (REST demo)")
 
 
-DB: Dict[int, dict] = {}
-SEQ = 0
+class BookIn(BaseModel):
+    title: constr(min_length=1, strip_whitespace=True)
+    author: constr(min_length=1, strip_whitespace=True)
 
 
-def auth(x_api_key: Optional[str] = Header(None)):
-    if x_api_key != "secret":
-        raise HTTPException(status_code=401, detail="Unauthorized")
+class BookOut(BookIn):
+    id: int
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+# In-memory “DB” for demo only
+DB: Dict[int, BookIn] = {}
+NEXT_ID = 1
 
 
-@app.get("/items")
-def list_items():
+# --------- Simple Auth (Bearer token demo) ---------
+def get_token(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization.split(" ", 1)[1]
+    if token != "demo-token":  # never hardcode in real apps
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return token
+
+
+# --------- Helpers ---------
+def make_etag(obj) -> str:
+    body = json.dumps(obj, sort_keys=True).encode()
+    return md5(body).hexdigest()
+
+
+# --------- Routes ---------
+@app.get("/books", response_model=List[BookIn])
+def list_books():
+    # Cacheable collection (weak demo)
     return list(DB.values())
 
 
-@app.get("/items/{item_id}")
-def get_item(item_id: int):
-    if item_id not in DB:
-        raise HTTPException(status_code=404, detail="Item not found")
-    return DB[item_id]
+@app.post("/books", response_model=BookIn, status_code=201, dependencies=[Depends(get_token)])
+def create_book(book: BookIn):
+    global NEXT_ID
+    new = BookOut(id=NEXT_ID, **book.model_dump())
+    DB[NEXT_ID] = new
+    NEXT_ID += 1
+    return new
 
 
-@app.post("/items", status_code=201, dependencies=[Depends(auth)] )
-def create_item(item: Item, response: Response):
-    global SEQ
-    SEQ += 1
-    obj = {"id": SEQ, **item.dict()}
-    DB[SEQ] = obj
-    response.headers["Location"] = f"/items/{SEQ}"
-    return obj
+@app.get("/books/{book_id}", response_model=BookIn)
+def get_book(book_id: int, if_none_match: Optional[str] = Header(None)):
+    book = DB.get(book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Not found")
+    etag = make_etag(book.model_dump())
+    # Simple conditional GET using ETag
+    if if_none_match == etag:
+        # FastAPI doesn't have a built-in 304 helper; raise for brevity
+        # In practice, set status_code=304 with empty body.
+        raise HTTPException(status_code=304, detail="Not Modified")
+    # You can set headers via Response, but we keep it simple for entry level
+    return book
 
 
-@app.put("/items/{item_id}")
-def replace_item(item_id: int, new_item: Item):
-    if item_id not in DB:
-        raise HTTPException(status_code=404, detail="Item not found")
-    DB[item_id] = {"id": item_id, **new_item.dict()}
-    return DB[item_id]
+@app.put("/books/{book_id}", response_model=BookIn, dependencies=[Depends(get_token)])
+def update_book(book_id: int, book: BookIn):
+    if book_id not in DB:
+        raise HTTPException(status_code=404, detail="Not found")
+    DB[book_id] = BookOut(id=book_id, **book.model_dump())
+    return DB[book_id]
 
 
-@app.patch("/items/{item_id}")
-def patch_item(item_id: int, fields: Dict[str, Any]):
-    if item_id not in DB:
-        raise HTTPException(status_code=404, detail="Item not found")
-    for k, v in fields.items():
-        if k in ("name", "description", "price"):
-            DB[item_id][k] = v
-    return DB[item_id]
+@app.patch("/books/{book_id}", response_model=BookIn, dependencies=[Depends(get_token)])
+def patch_book(book_id: int, book: BookIn):
+    existing = DB.get(book_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Not found")
+    updated_data = existing.model_dump()
+    update_data = book.model_dump(exclude_unset=True)
+    updated_data.update(update_data)
+    DB[book_id] = BookOut(id=book_id, **updated_data)
+    return DB[book_id]
 
 
-@app.delete("/items/{item_id}", status_code=204)
-def delete_item(item_id: int):
-    if item_id not in DB:
-        raise HTTPException(status_code=404, detail="Item not found")
-    del DB[item_id]
-    return Response(status_code=204)
-
-
-@app.get("/ip", dependencies=[Depends(auth)])
-async def my_ip():
-    async with httpx.AsyncClient(timeout=5) as client:
-        r = await client.get("https://api.ipify.org?format=json")
-    return {"public_ip": r.json().get("ip")}
-
-
-@app.get("/resolve", dependencies=[Depends(auth)])
-def resolve(host: str):
-    try:
-        return {"host": host, "ip": socket.gethostbyname(host)}
-    except socket.gaierror:
-        raise HTTPException(status_code=400, detail="DNS resolution failed")
-
-
-@app.get("/ping", dependencies=[Depends(auth)])
-def tcp_ping(host: str, port: int = 80, timeout: float = 1.5):
-    s = socket.socket()
-    s.settimeout(timeout)
-    try:
-        s.connect((host, port))
-        return {"host": host, "port": port, "reachable": True}
-    except Exception:
-        return {"host": host, "port": port, "reachable": False}
-    finally:
-        s.close()
-
-
-@app.get("/headers", dependencies=[Depends(auth)])
-def echo_headers(req: Request):
-    return {k: v for k, v in req.headers.items()}
-
-
-@app.get("/search", dependencies=[Depends(auth)])
-def search_items(q: str):
-    ql = q.lower()
-    return [it for it in DB.values() if ql in it["name"].lower()]
+@app.delete("/books/{book_id}", status_code=204, dependencies=[Depends(get_token)])
+def delete_book(book_id: int):
+    if book_id not in DB:
+        raise HTTPException(status_code=404, detail="Not found")
+    del DB[book_id]
+    return None
