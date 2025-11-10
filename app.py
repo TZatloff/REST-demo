@@ -14,6 +14,7 @@ class BookIn(BaseModel):
 
 class BookOut(BookIn):
     id: int
+    pass
 
 
 # In-memory “DB” for demo only
