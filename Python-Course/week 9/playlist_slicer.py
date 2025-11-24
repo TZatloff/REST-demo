@@ -28,10 +28,22 @@ print("Post Malone - Rockstar" in playlist)
 # Prompts the user for start, end, and step values, converts them to integers,
 # and handles potential invalid or negative inputs.
 try:
-    start = int(input("Enter the index (can negative, e.g, -3): "))
+    start = int(input("Enter the start index (can negative, e.g, -3): "))
     end = int(input("Enter end index (exclusive, can be negative, e.g, -1): "))
     step = int(input("Enter step (e.g, 1 for normal, -1 for reverse): "))
 
+    # Create the slice
+    preview_slice = playlist[start:end:step]
+
+    print("\n Full playlist:")
     print(f"\nYou entered: start={start}, end={end}, step={step}")
+
+    # PYCOR-43: Reverse preview, and generated  display the preview slice
+    reverse = input("Reverse preview? (y/n): ").lower()
+    if reverse == "y":
+        preview_slice = preview_slice[::-1]
+        print("\nReversed preview slice:")
+        print(preview_slice)
+
 except ValueError:
     print("Invalid input! Please enter integer values only.")
