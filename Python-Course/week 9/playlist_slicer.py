@@ -1,6 +1,6 @@
 # PYCOR-41: Design the playlist and sample data
 # Created a playlist with alt/rock and rap tracks.
-# This list is used for slicing, negative indices, reverse slicing, and membership checks as required by the assignment.
+# This list is used for slicing, negative indices, reverse slicing, and membership checks.
 
 playlist = [
     "Linkin Park - Numb",
@@ -19,31 +19,39 @@ playlist = [
     "Kendrick Lamar - HUMBLE.",
     "Post Malone - Rockstar"
 ]
+
+# Basic slice tests
 print(playlist[1:4])
 print(playlist[-4:-1])
 print(playlist[::-1])
 print("Post Malone - Rockstar" in playlist)
 
 # PYCOR-42: Prompt user for slice indices and handle input safely
-# Prompts the user for start, end, and step values, converts them to integers,
-# and handles potential invalid or negative inputs.
+# PYCOR-43: Reverse preview and display the preview slice
+# PYCOR-44: Membership check
 try:
-    start = int(input("Enter the start index (can negative, e.g, -3): "))
-    end = int(input("Enter end index (exclusive, can be negative, e.g, -1): "))
-    step = int(input("Enter step (e.g, 1 for normal, -1 for reverse): "))
+    start = int(input("Enter start index (can be negative, e.g., -3): "))
+    end = int(input("Enter end index (exclusive, can be negative, e.g., -1): "))
+    step = int(input("Enter step (e.g., 1 for normal, -1 for reverse): "))
 
-    # Create the slice
     preview_slice = playlist[start:end:step]
 
-    print("\n Full playlist:")
-    print(f"\nYou entered: start={start}, end={end}, step={step}")
+    print("\nFull playlist:")
+    print(f"You entered: start={start}, end={end}, step={step}")
+    print("\nPreview slice:")
+    print(preview_slice)
 
-    # PYCOR-43: Reverse preview, and generated  display the preview slice
     reverse = input("Reverse preview? (y/n): ").lower()
     if reverse == "y":
         preview_slice = preview_slice[::-1]
         print("\nReversed preview slice:")
         print(preview_slice)
+
+    song_to_check = input("Enter a song name to check: ")
+    if song_to_check in preview_slice:
+        print(f"'{song_to_check}' is in the preview!")
+    else:
+        print(f"'{song_to_check}' is NOT in the preview.")
 
 except ValueError:
     print("Invalid input! Please enter integer values only.")
