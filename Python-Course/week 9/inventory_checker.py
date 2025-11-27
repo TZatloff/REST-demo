@@ -20,4 +20,13 @@ inventory = {
     "grape": 20
 
 }
+added_order = ["apple", "banana", "orange", "pear", "grape"]
+# Prompt user for items to check
+user_input = input("Enter items separated by commas: ")
+# Process user input into a list of requested items
+requested_items = [
+    item.strip()
+    for item in user_input.split(",")
+    if item.strip()
+]
 
