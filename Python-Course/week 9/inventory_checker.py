@@ -10,6 +10,7 @@ class Item:
     def __eq__(self, other):
         return self.name == other.name and self.quantity == other.quantity
 
+
 # Set up inventory and added order list
 inventory = {
     "apple": 10,
@@ -19,5 +20,4 @@ inventory = {
     "grape": 20
 
 }
-added_order = ["apple", "banana", "orange", "pear", "grape"]
 
